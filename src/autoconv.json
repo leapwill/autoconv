@@ -1,0 +1,19 @@
+{
+    "matchers": [
+        {
+            "dir": "/watch",
+            "recurse": true,
+            "result": {
+                "vcodecs": ["h264"],
+                "maxheight": "2160",
+                "acodecs": ["aac", "ac3"],
+                "acodecs6": ["ac3"],
+                "allowcopy": true,
+                "naming": "copy",
+                "path": "/out",
+                "containers": ["mkv"],
+                "scodecs": ["srt"]
+            }
+        }
+    ]
+}

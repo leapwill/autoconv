@@ -1,6 +1,8 @@
 FROM mcr.microsoft.com/powershell:debian-bullseye-slim
 
-# get inotify-tools
+LABEL "org.opencontainers.image.source"="https://github.com/leapwill/autoconv"
+
+# get deps
 RUN \
     apt-get update && \
     apt-get install -y inotify-tools wget xz-utils && \
@@ -19,7 +21,6 @@ RUN \
     mv ffmpeg-git-amd64-static/ffmpeg ffmpeg-git-amd64-static/ffprobe /usr/local/bin/ && \
     cd / && \
     rm -rf /tmp/dl-ffmpeg
-
 
 COPY src/ /src/
 

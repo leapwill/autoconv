@@ -276,7 +276,7 @@ if ($vSrc.stream.height -gt $Matcher.result.maxheight) {
     # could do this with force_original_aspect_ratio=decrease:force_divisible_by=2 but that's quirky
     $ffArgs += @('-vf', "scale=-2:$($Matcher.result.maxheight)")
 }
-if ($vDestCodec -eq 'hevc') {
+if (@('hevc','libx265') -Contains $vDestCodec) {
     $ffArgs += @('-x265-params', 'log-level=warning')
 }
 $destExtension = $null

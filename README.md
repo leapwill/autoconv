@@ -6,7 +6,7 @@ Watch a directory and automatically convert videos to the desired format.
 
 ## Configuration
 
-Modify `/config/autoconv.json` according to your needs.
+Modify `/config/autoconv.json` according to your needs. The first codec in the allowed list will be used if conversion is necessary.
 
 ```yaml
 matchers: # list of file path prefix matchers, the first matching one is used
@@ -35,8 +35,11 @@ Currently using JSON for native PowerShell support.
 
 ## Usage
 
-Put your video files in the watched directory. If you have a subtitle file, put it in the directory **first** and give it the same name as the video.
+Put your video files in the watched directory. If you have a subtitle file, put it in the directory **first** and give it the same name as the video. Input files will be deleted if conversion succeeds.
 
+### Naming
 For Plex name detection, movies should be `Title Year` (year may be in parentheses), and TV episodes should be `Series Name SxxExx`. Words can be separated by space or period. Any other information after the year or season/episode is ignored.
 
-Set environment variable `DEBUG` to `1` for verbose logging.
+### Environment Variables
+* `DEBUG` for verbose logging
+* `DRY_RUN` to log `ffmpeg` command without executing

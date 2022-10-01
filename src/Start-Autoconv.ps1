@@ -305,11 +305,20 @@ else {
     [string]$cmd = [string]::Join(' ', $ffArgs)
     Write-Output "[$LOG_TAG]$cmd"
     # TODO environment variable for dry run
-    Invoke-Expression $cmd
-    if ($?) {
-        Remove-Item $File
-        if ($SubFile) {
-            Remove-Item $SubFile
+    if ($Env:DRY_RUN) {
+        Write-Output "[$LOG_TAG]Dry run, but would have run: $cmd"
+    }
+    else {
+        Invoke-Expression $cmd
+        if ($?) {
+            Remove-Item $File
+            if ($SubFile) {
+                Remove-Item $SubFile
+            }
+        }
+        else {
+            Write-Error "[$LOG_TAG]Conversion failed."
+            # TODO catch errors and log to file
         }
     }
 }

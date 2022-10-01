@@ -308,6 +308,9 @@ else {
     Invoke-Expression $cmd
     if ($?) {
         Remove-Item $File
+        if ($SubFile) {
+            Remove-Item $SubFile
+        }
     }
 }
 Write-Output "[$LOG_TAG]Complete."

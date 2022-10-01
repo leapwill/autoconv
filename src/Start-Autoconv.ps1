@@ -71,15 +71,15 @@ function Guess-PlexName {
     [string]$episode = $null
     [int]$seasEpIdx = $null
     $isTv = $false
-    foreach ($word in $words) {
+    for ($i = 0; $i -lt $words.Length; $i++) {
         if ($word -iMatch 's([0-9]{2,3})e([0-9]{2,3})') {
             $isTv = $true
             $season = $Matches[1]
             $episode = $Matches[2]
             $seasEpIdx = $words.IndexOf($word)
         }
-        elseif ($word -Match '(?:19|20)[0-9]{2}') {
-            $year = $word
+        elseif ($word -Match '(?:1[89]|20)[0-9]{2}') {
+            $year = $words[$i] = $word -Replace '[\(\)]',''
         }
     }
     Write-Debug "[$LOG_TAG]isTv:$isTv year:$year season:$season episode:$episode seasEpIdx:$seasEpIdx"

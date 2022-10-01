@@ -37,6 +37,6 @@ Currently using JSON for native PowerShell support.
 
 Put your video files in the watched directory. If you have a subtitle file, put it in the directory **first** and give it the same name as the video.
 
-For Plex name detection, movies should be `Title Year`, and TV episodes should be `Series Name SxxExx`. Words can be separated by space or period. Any other information after the year or season/episode is ignored.
+For Plex name detection, movies should be `Title Year` (year may be in parentheses), and TV episodes should be `Series Name SxxExx`. Words can be separated by space or period. Any other information after the year or season/episode is ignored.
 
 Set environment variable `DEBUG` to `1` for verbose logging.

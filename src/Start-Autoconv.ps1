@@ -107,32 +107,36 @@ function Guess-PlexName {
 }
 function Get-AudioCodecRank {
     param([Parameter(Mandatory,Position=0)]$Stream)
-    switch ($Stream.channels) {
-        6 {
-            switch ($Stream.codec_name) {
-                'aac' {
-                    switch ($Stream.profile) {
-                        'LC' { return 699 }
-                        'HE-AAC' { return 698 }
-                        default {
-                            throw "[$LOG_TAG]Unkown 6ch AAC profile='$($Stream.profile)' on stream index=$($Stream.index)"
-                        }
+    function Get-SurroundRank {
+        param([Parameter(Mandatory,Position=0)]$Stream)
+        switch ($Stream.codec_name) {
+            'aac' {
+                switch ($Stream.profile) {
+                    'LC' { return 99 }
+                    'HE-AAC' { return 98 }
+                    default {
+                        throw "[$LOG_TAG]Unkown multi-channel AAC profile='$($Stream.profile)' on stream index=$($Stream.index)"
                     }
-                }
-                'dts' {
-                    switch ($Stream.profile) {
-                        'DTS-HD MA' { return 690 } # great but TV won't play
-                        default {
-                            throw "[$LOG_TAG]Uninvestigated 6ch DTS profile='$($Stream.profile)' on stream index=$($Stream.index)"
-                        }
-                    }
-                }
-                'eac3' { return 660 }
-                'ac3' { return 650 }
-                default {
-                    throw "[$LOG_TAG]Unknown 6ch codec='$($Stream.codec_name)' on stream index=$($Stream.index)"
                 }
             }
+            'dts' {
+                switch ($Stream.profile) {
+                    'DTS-HD MA' { return 90 } # great but TV won't play
+                    default {
+                        throw "[$LOG_TAG]Uninvestigated multi-channel DTS profile='$($Stream.profile)' on stream index=$($Stream.index)"
+                    }
+                }
+            }
+            'eac3' { return 60 }
+            'ac3' { return 50 }
+            default {
+                throw "[$LOG_TAG]Unknown multi-channel codec='$($Stream.codec_name)' on stream index=$($Stream.index)"
+            }
+        }
+    }
+    switch -Regex ($Stream.channels) {
+        '6|8' {
+            return (Get-SurroundRank $Stream) + ($Stream.channels * 100)
         }
         2 {
             switch ($Stream.codec_name) {

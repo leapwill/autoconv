@@ -234,7 +234,7 @@ $vDestCodec = $Matcher.result.vcodecs[0]
 if ($Matcher.result.vcodecs -Contains $vSrc.stream.codec_name -and $Matcher.result.allowcopy) {
     $vDestCodec = 'copy'
 }
-if ($Matcher.result.vcodecs -Contains 'hevc' -and $vDestCodec -ne 'hevc' -and (($vSrc.stream.width -gt 1920 -or $vSrc.stream.height -gt 1080) -or ($vSrc.stream.profile -iLike '*10' -or $vSrc.stream.pix_fmt -iMatch '.*10[bl]e') -or ($vSrc.stream.color_space -eq 'bt2020nc' -or $vSrc.stream.color_transfer -eq 'smpte2084' -or $vSrc.stream.color_primaries -eq 'bt2020'))) {
+if ($Matcher.result.vcodecs -Contains 'hevc' -and -not ($vDestCodec -eq 'hevc' -or ($vDestCodec -eq 'copy' -and $vSrc.stream.codec_name -eq 'hevc')) -and (($vSrc.stream.width -gt 1920 -or $vSrc.stream.height -gt 1080) -or ($vSrc.stream.profile -iLike '*10' -or $vSrc.stream.pix_fmt -iMatch '.*10[bl]e') -or ($vSrc.stream.color_space -eq 'bt2020nc' -or $vSrc.stream.color_transfer -eq 'smpte2084' -or $vSrc.stream.color_primaries -eq 'bt2020'))) {
     # compatibility with some TVs
     $vDestCodec = 'libx265'
     Write-Debug "[$LOG_TAG]Video stream will be $vDestCodec : >FHD or 10-bit color or HDR"

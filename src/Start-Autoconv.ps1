@@ -26,6 +26,7 @@ Write-Output "[$LOG_TAG]Recieved event dir=$($WatchedDir) file=$($FileName) even
 $FileName = $WatchedDir + $FileName
 $File = Get-Item -LiteralPath $FileName
 [string[]]$VIDEO_EXTENSIONS = @('.3g2','.3gp','.3gp2','.3gpp','.amr','.amv','.asf','.avi','.bdmv','.bik','.d2v','.divx','.drc','.dsa','.dsm','.dss','.dsv','.evo','.f4v','.flc','.fli','.flic','.flv','.hdmov','.ifo','.ivf','.m1v','.m2p','.m2t','.m2ts','.m2v','.m4b','.m4p','.m4v','.mkv','.mk3d','.mp2v','.mp4','.mp4v','.mpe','.mpeg','.mpg','.mpls','.mpv2','.mpv4','.mov','.mts','.mxf','.ogm','.ogv','.pss','.pva','.qt','.ram','.ratdvd','.rm','.rmm','.rmvb','.roq','.rpm','.smil','.smk','.swf','.tp','.tpr','.ts','.vob','.vp6','.webm','.wm','.wmp','.wmv')
+[string[]]$BITMAP_SUBS = @('dvb_subtitle', 'dvd_subtitle', 'hdmv_pgs_subtitle')
 if (-not ($VIDEO_EXTENSIONS -Contains $File.Extension)) {
     Write-Warning "[$LOG_TAG]Skipping as it does not appear to be a video file"
     exit 0
@@ -245,8 +246,19 @@ else {
     }
 }
 $sDestCodec = $Matcher.result.scodecs[0]
-if ($Matcher.result.scodecs -Contains $sSrc.stream.codec_name -and $Matcher.result.allowcopy) {
+if (($Matcher.result.scodecs -Contains $sSrc.stream.codec_name -and $Matcher.result.allowcopy)) {
     $sDestCodec = 'copy'
+}
+elseif ($BITMAP_SUBS -Contains $sSrc.stream.codec_name) {
+    $bitmapAllowedIntersection = $Matcher.result.scodecs | Where-Object {$BITMAP_SUBS -Contains $_}
+    if ($bitmapAllowedIntersection.Length -eq 0) {
+        $sDestCodec = 'copy'
+        Write-Debug "[$LOG_TAG]Subtitle stream will be copied as $($sSrc.stream.codec_name) : is bitmap type and no bitmap types in allow list"
+    }
+    else {
+        $sDestCodec = $bitmapAllowedIntersection[0]
+        Write-Debug "[$LOG_TAG]Subtitle stream will be $sDestCodec : is first allowed bitmap type"
+    }
 }
 
 Write-Verbose "[$LOG_TAG]Producing vcodec='$($vDestCodec)' acodec='$($aDestCodec)' scodec='$($sDestCodec)'"
@@ -274,6 +286,9 @@ if ($SubFile) {
 }
 elseif ($sSrc.stream) {
     $ffArgs += @('-map', "0:$($sSrc.idx)")
+}
+if ($SubFile -or $sSrc.stream) {
+    $ffArgs += @('-c:s', $sDestCodec)
 }
 $ffArgs += @('-c:v', $vDestCodec, '-crf', '22', '-c:a', $aDestCodec)
 if ($vSrc.stream.height -gt $Matcher.result.maxheight) {

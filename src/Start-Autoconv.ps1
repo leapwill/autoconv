@@ -174,7 +174,13 @@ foreach ($s in $Probe.streams) {
     switch ($s.codec_type) {
         'video' {
             if ($vSrc.stream -ne $null) {
-                throw "[$LOG_TAG]Second video stream found at index=$($s.index)"
+                if ($s.codec_name -eq 'mjpeg') {
+                    # cover art, ignore
+                    continue
+                }
+                else {
+                    throw "[$LOG_TAG]Second video stream found at index=$($s.index)"
+                }
             }
             # TODO ranking and preference
             $vSrc.stream = $s

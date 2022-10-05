@@ -332,14 +332,20 @@ else {
     }
     else {
         Invoke-Expression $cmd
-        if ($?) {
+        $retCode = $LASTEXITCODE
+        if ($retCode -eq 0) {
+            Write-Verbose "[$LOG_TAG]Succeeded ($retCode), deleting input files"
             Remove-Item $File
             if ($SubFile) {
                 Remove-Item $SubFile
             }
         }
         else {
-            Write-Error "[$LOG_TAG]Conversion failed."
+            if ((Test-Path -LiteralPath $OutFullName) -and ((Get-Item -LiteralPath $OutFullName).Length -eq 0)) {
+                # if ffmpeg fails during initialization, it still creates an empty output file
+                Remove-Item -LiteralPath $OutFullName
+            }
+            Write-Error "[$LOG_TAG]Conversion failed ($retCode)."
             # TODO catch errors and log to file
         }
     }

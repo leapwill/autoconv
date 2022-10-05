@@ -73,6 +73,7 @@ function Guess-PlexName {
     [int]$seasEpIdx = $null
     $isTv = $false
     for ($i = 0; $i -lt $words.Length; $i++) {
+        $word = $words[$i]
         if ($word -iMatch 's([0-9]{2,3})e([0-9]{2,3})') {
             $isTv = $true
             $season = $Matches[1]

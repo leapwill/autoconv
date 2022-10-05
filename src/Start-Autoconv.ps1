@@ -305,6 +305,10 @@ if ($vSrc.stream.height -gt $Matcher.result.maxheight) {
 if (@('hevc','libx265') -Contains $vDestCodec) {
     $ffArgs += @('-x265-params', 'log-level=warning')
 }
+if ($aDestCodec -eq 'ac3' -and $aSrc.stream.channels -gt 6 -and $aSrc.stream.channel_layout -Match '\.1') {
+    # for some reason ffmpeg defaults to not including LFE when downmixing to ac3
+    $ffArgs += @('-ac', '6')
+}
 $destExtension = $null
 if (($sSrc.stream -or $SubFile) -and $Matcher.result.containers -Contains 'mkv') {
     $destExtension = 'mkv'

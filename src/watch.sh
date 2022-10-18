@@ -1,6 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
-cp -n /src/autoconv.json /config/
+if ! [ -r /config/autoconv.json ]; then
+    cp /src/autoconv.json /config/autoconv.json
+fi
 
 /usr/bin/inotifywait --monitor --recursive --quiet --csv -e close_write -e moved_to /watch |
 while read -r notif; do

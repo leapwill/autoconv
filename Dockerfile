@@ -1,27 +1,14 @@
-FROM mcr.microsoft.com/powershell:debian-bullseye-slim
+FROM jrottenberg/ffmpeg:5.1-alpine313 AS ffbuild
+FROM mcr.microsoft.com/powershell:lts-alpine-3.13
+COPY --from=ffbuild /usr/local /usr/local
+ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64
+# ffmpeg dynamic linking
+RUN apk add --no-cache --update libgcc libstdc++ ca-certificates libcrypto1.1 libssl1.1 libgomp expat git
 
 LABEL "org.opencontainers.image.source"="https://github.com/leapwill/autoconv"
 
-# get deps
-RUN \
-    apt-get update && \
-    apt-get install -y inotify-tools wget xz-utils && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# get a nightly git build of ffmpeg
-RUN \
-    mkdir -p /tmp/dl-ffmpeg && \
-    cd /tmp/dl-ffmpeg && \
-    wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz && \
-    wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz.md5 && \
-    md5sum -c ffmpeg-git-amd64-static.tar.xz.md5 && \
-    tar xvf ffmpeg-git-amd64-static.tar.xz && \
-    mv $(find . -maxdepth 1 -type d -name 'ffmpeg*') ffmpeg-git-amd64-static && \
-    mv ffmpeg-git-amd64-static/ffmpeg ffmpeg-git-amd64-static/ffprobe /usr/local/bin/ && \
-    cd / && \
-    rm -rf /tmp/dl-ffmpeg
+RUN apk add --no-cache --update inotify-tools
 
 COPY src/ /src/
 
-CMD ["/bin/bash", "/src/watch.sh"]
+CMD ["/bin/sh", "/src/watch.sh"]

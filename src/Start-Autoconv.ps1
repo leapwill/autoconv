@@ -113,7 +113,16 @@ function Get-AudioCodecRank {
         param([Parameter(Mandatory,Position=0)]$Stream)
         switch ($Stream.codec_name) {
             'aac' {
-                switch ($Stream.profile) {
+                function Get-AacProfileName {
+                    # --enable-small makes libavcodec give numbers, defined at https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/avcodec.h#L1554 and names at https://github.com/FFmpeg/FFmpeg/blob/870bfe16a12bf09dca3a4ae27ef6f81a2de80c40/libavcodec/profiles.c#L26
+                    param([Parameter(Mandatory,Position=0)]$NameOrNum)
+                    [int]$i = -1;
+                    if ([int]::TryParse($NameOrNum, [ref]$i)) {
+                        return @('Main', 'LC', 'SSR', 'LTP', 'HE-AAC')[$i]
+                    }
+                    return $NameOrNum
+                }
+                switch (Get-AacProfileName $Stream.profile) {
                     'LC' { return 99 }
                     'HE-AAC' { return 98 }
                     default {

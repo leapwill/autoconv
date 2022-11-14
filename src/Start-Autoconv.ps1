@@ -26,11 +26,11 @@ Write-Output "[$LOG_TAG]Recieved event dir=$($WatchedDir) file=$($FileName) even
 $FileName = $WatchedDir + $FileName
 $File = Get-Item -LiteralPath $FileName
 [string[]]$VIDEO_EXTENSIONS = @('.3g2','.3gp','.3gp2','.3gpp','.amr','.amv','.asf','.avi','.bdmv','.bik','.d2v','.divx','.drc','.dsa','.dsm','.dss','.dsv','.evo','.f4v','.flc','.fli','.flic','.flv','.hdmov','.ifo','.ivf','.m1v','.m2p','.m2t','.m2ts','.m2v','.m4b','.m4p','.m4v','.mkv','.mk3d','.mp2v','.mp4','.mp4v','.mpe','.mpeg','.mpg','.mpls','.mpv2','.mpv4','.mov','.mts','.mxf','.ogm','.ogv','.pss','.pva','.qt','.ram','.ratdvd','.rm','.rmm','.rmvb','.roq','.rpm','.smil','.smk','.swf','.tp','.tpr','.ts','.vob','.vp6','.webm','.wm','.wmp','.wmv')
-[string[]]$BITMAP_SUBS = @('dvb_subtitle', 'dvd_subtitle', 'hdmv_pgs_subtitle')
 if (-not ($VIDEO_EXTENSIONS -Contains $File.Extension)) {
     Write-Warning "[$LOG_TAG]Skipping as it does not appear to be a video file"
     exit 0
 }
+[string[]]$BITMAP_SUBS = @('dvb_subtitle', 'dvd_subtitle', 'hdmv_pgs_subtitle')
 #endregion
 
 #region parse config, find output format
@@ -66,10 +66,20 @@ function Guess-PlexName {
     Set-StrictMode -Version Latest
     # https://support.plex.tv/articles/naming-and-organizing-your-tv-show-files/
     # https://support.plex.tv/articles/naming-and-organizing-your-movie-media-files/
+    # https://support.plex.tv/articles/local-files-for-trailers-and-extras/
+    [System.Collections.Generic.Dictionary[string,string]]$EXTRAS_TYPES = @{}
+    $EXTRAS_TYPES.Add('behindthescenes', 'Behind The Scenes')
+    $EXTRAS_TYPES.Add('deleted', 'Deleted Scenes')
+    $EXTRAS_TYPES.Add('featurette', 'Featurettes')
+    $EXTRAS_TYPES.Add('interview', 'Interviews')
+    $EXTRAS_TYPES.Add('scene', 'Scenes')
+    $EXTRAS_TYPES.Add('short', 'Shorts')
+    $EXTRAS_TYPES.Add('trailer', 'Trailers')
+    $EXTRAS_TYPES.Add('other', 'Other')
     $words = $OrigName.Split([char[]]@('.', ' '))
-    [string]$year = $null
-    [string]$season = $null
-    [string]$episode = $null
+    [string]$year = ''
+    [string]$season = ''
+    [string]$episode = ''
     [int]$seasEpIdx = $null
     $isTv = $false
     for ($i = 0; $i -lt $words.Length; $i++) {
@@ -84,7 +94,13 @@ function Guess-PlexName {
             $year = $words[$i] = $word -Replace '[\(\)]',''
         }
     }
-    Write-Debug "[$LOG_TAG]isTv:$isTv year:$year season:$season episode:$episode seasEpIdx:$seasEpIdx"
+    [string]$extraName = ''
+    [string]$extraType = ''
+    if ($OrigName -iMatch "\[([^\[\]]+)-($([string]::Join('|',$EXTRAS_TYPES.Keys)))\]") {
+        $extraName = $Matches[1]
+        $extraType = $Matches[2]
+    }
+    Write-Debug "[$LOG_TAG]isTv:$isTv year:$year season:$season episode:$episode seasEpIdx:$seasEpIdx isExtra:$($extraType -ne '')"
 
     [int]$nameStopIdx = -1
     if ($year -and $seasEpIdx) {
@@ -101,6 +117,9 @@ function Guess-PlexName {
         return (Join-Path $name "Season $season" "$name - s${season}e$episode")
     }
     elseif ($year -ne $null -and -not $isTv) {
+        if ($extraType -ne '') {
+            return (Join-Path "$name (${year})" $EXTRAS_TYPES[$extraType] $extraName)
+        }
         return (Join-Path "$name (${year})" "$name (${year})")
     }
     else {

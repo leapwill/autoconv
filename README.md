@@ -40,6 +40,13 @@ Put your video files in the watched directory. If you have a subtitle file, put 
 ### Naming
 For Plex name detection, movies should be `Title Year` (year may be in parentheses), and TV episodes should be `Series Name SxxExx`. Words can be separated by space or period. Any other information after the year or season/episode is ignored.
 
+Extras are supported. The extra file name must start with the movie name and year, and then contain an extra name, hyphen, and type of extra in square brackets. Supported extras types are `behindthescenes`, `deleted`, `featurette`, `interview`, `scene`, `short`, `trailer`, and `other`, per [the Plex documentation](https://support.plex.tv/articles/local-files-for-trailers-and-extras/).
+
+Example:
+- Movie: `Avatar 2009.mp4`
+- Subtitles: `Avatar 2009.srt`
+- Extras: `Avatar 2009 [Sigourney Weaver-interview].mp4`
+
 ### Environment Variables
 * `DEBUG` for verbose logging
 * `DRY_RUN` to log `ffmpeg` command without executing

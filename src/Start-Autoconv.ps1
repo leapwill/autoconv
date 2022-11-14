@@ -375,9 +375,9 @@ else {
         $retCode = $LASTEXITCODE
         if ($retCode -eq 0) {
             Write-Verbose "[$LOG_TAG]Succeeded ($retCode), deleting input files"
-            Remove-Item $File
+            Remove-Item -LiteralPath $File
             if ($SubFile) {
-                Remove-Item $SubFile
+                Remove-Item -LiteralPath $SubFile
             }
         }
         else {

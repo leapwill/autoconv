@@ -225,8 +225,8 @@ foreach ($s in $Probe.streams) {
                 # TODO check language='eng'
                 Break
             }
-            if ($aSrc.stream -ne $null) {
-                Write-Debug "[$LOG_TAG]Skipping audio track: already have one"
+            if ($aSrc.stream -ne $null -and $aSrc.stream.tags.PSobject.Properties['language'] -and $aSrc.stream.tags.language -iLike '*eng*') {
+                Write-Debug "[$LOG_TAG]Skipping audio track: already have one that is English"
                 Break
             }
             Write-Debug "[$LOG_TAG]Taking audio track"
@@ -247,8 +247,8 @@ foreach ($s in $Probe.streams) {
                 Write-Debug "[$LOG_TAG]Skipping sub track: already have an English and new is SDH"
                 Break
             }
-            if ($sSrc.stream -ne $null) {
-                Write-Debug "[$LOG_TAG]Skipping sub track: already have one"
+            if ($sSrc.stream -ne $null -and $sSrc.stream.tags.PSobject.Properties['language'] -and $sSrc.stream.tags.language -iLike '*eng*') {
+                Write-Debug "[$LOG_TAG]Skipping sub track: already have one that is English"
                 Break
             }
             Write-Debug "[$LOG_TAG]Taking sub track"

@@ -187,7 +187,7 @@ $vSrc = @{} # stream obj, int idx
 $aSrc = @{}
 $sSrc = @{}
 #region probe input, decide what to convert
-$Probe = ffprobe -print_format json -show_streams $FileName 2>$null | ConvertFrom-Json
+$Probe = ffprobe -v error -print_format json -show_streams -show_entries format=duration $FileName 2>$null | ConvertFrom-Json
 $SubFile = Join-Path $File.Directory ($File.BaseName+'.srt') # TODO could be better, .srt is not the only format
 if (-not (Test-Path -PathType Leaf -LiteralPath $SubFile)) {
     $SubFile = $null
@@ -371,7 +371,7 @@ else {
         Write-Output "[$LOG_TAG]Dry run, but would have run: $cmd"
     }
     else {
-        Invoke-Expression $cmd
+        Invoke-Expression $cmd -ErrorVariable fferr
         $retCode = $LASTEXITCODE
         if ($retCode -eq 0) {
             Write-Verbose "[$LOG_TAG]Succeeded ($retCode), deleting input files"
@@ -381,11 +381,23 @@ else {
             }
         }
         else {
-            if ((Test-Path -LiteralPath $OutFullName) -and ((Get-Item -LiteralPath $OutFullName).Length -eq 0)) {
-                # if ffmpeg fails during initialization, it still creates an empty output file
-                Remove-Item -LiteralPath $OutFullName
+            if (Test-Path -LiteralPath $OutFullName) {
+                if ((Get-Item -LiteralPath $OutFullName).Length -eq 0) {
+                    # if ffmpeg fails during initialization, it still creates an empty output file
+                    Remove-Item -LiteralPath $OutFullName
+                    throw "[$LOG_TAG]Conversion failed ($retCode). Bad parameters to ffmpeg?" $fferr
+                }
+                elseif ([Math]::Abs((fprobe -v error -print_format json -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $OutFullName) - $Probe.format.duration) -gt 1) {
+                    # duration of output is significantly different from input
+                    throw "[$LOG_TAG]Output file is wrong length ($retCode). You should probably delete the output and retry." $fferr
+                }
+                else {
+                    throw "[$LOG_TAG]Unknown error occurred ($retCode). Please report this." $fferr
+                }
             }
-            Write-Error "[$LOG_TAG]Conversion failed ($retCode)."
+            else {
+                throw "[$LOG_TAG]No output file produced ($retCode). Odd." $fferr
+            }
             # TODO catch errors and log to file
         }
     }

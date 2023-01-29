@@ -15,5 +15,6 @@
                 "scodecs": ["srt"]
             }
         }
-    ]
+    ],
+    "logerr": false
 }

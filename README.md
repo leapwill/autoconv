@@ -29,6 +29,7 @@ matchers: # list of file path prefix matchers, the first matching one is used
     path: '/out' # base directory for output
     containers: # allowable containers (mkv is recommended!)
     - mkv
+logerr: true # optional, failures will be logged in <FileName>.err.log in the matcher dir
 ```
 
 Currently using JSON for native PowerShell support.

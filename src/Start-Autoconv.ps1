@@ -2,7 +2,7 @@
 
 <#
 .PARAMETER Notif
-CSV notification from inotifywait, in format directory,event[,event...],filename
+CSV notification from inotifywait, in format directory/,event[,event...],filename
 #>
 [CmdletBinding()]
 param(
@@ -34,25 +34,27 @@ if (-not ($VIDEO_EXTENSIONS -Contains $File.Extension)) {
 #endregion
 
 #region parse config, find output format
-$ConfigFile = '/config/autoconv.json'
-$Config = Get-Content $ConfigFile | ConvertFrom-Json
-$Matcher = $null
-foreach ($m in $Config.matchers) {
-    if ($WatchedDir.StartsWith($m.dir)) {
-        $Matcher = $m
-        break
+[PSCustomObject]$Config = $null
+[PSCustomObject]$Matcher = $null
+function Parse-Config {
+    $ConfigFile = '/config/autoconv.json'
+    $script:Config = Get-Content $ConfigFile | ConvertFrom-Json
+    foreach ($m in $Config.matchers) {
+        if ($WatchedDir.StartsWith($m.dir)) {
+            $script:Matcher = $m
+            break
+        }
     }
-}
-# TODO fill in default values for optional matcher params
-if ((-not ($Matcher.recurse)) -and ($File.Directory.ToString() + [IO.Path]::DirectorySeparatorChar) -ne $WatchedDir) {
-    # file is in child dir, and recursion is disabled
-    $Matcher = $null
-}
-if ($Matcher -eq $null) {
-    Write-Warning "[$LOG_TAG]Could not find a directory matcher for $($FileName)"
-    exit
-}
-Write-Output "[$LOG_TAG]Using matcher dir=$($Matcher.dir)"
+    # TODO fill in default values for optional matcher params
+    if ((-not ($Matcher.recurse)) -and ($File.Directory.ToString() + [IO.Path]::DirectorySeparatorChar) -ne $WatchedDir) {
+        # file is in child dir, and recursion is disabled
+        $script:Matcher = $null
+    }
+    if ($Matcher -eq $null) {
+        throw "[$LOG_TAG]Could not find a directory matcher for $($FileName)"
+    }
+    Write-Output "[$LOG_TAG]Using matcher dir=$($Matcher.dir)"
+} 
 #endregion
 
 #region support functions
@@ -135,7 +137,7 @@ function Get-AudioCodecRank {
                 function Get-AacProfileName {
                     # --enable-small makes libavcodec give numbers, defined at https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/avcodec.h#L1554 and names at https://github.com/FFmpeg/FFmpeg/blob/870bfe16a12bf09dca3a4ae27ef6f81a2de80c40/libavcodec/profiles.c#L26
                     param([Parameter(Mandatory,Position=0)]$NameOrNum)
-                    [int]$i = -1;
+                    [int]$i = -1
                     if ([int]::TryParse($NameOrNum, [ref]$i)) {
                         return @('Main', 'LC', 'SSR', 'LTP', 'HE-AAC')[$i]
                     }
@@ -177,7 +179,7 @@ function Get-AudioCodecRank {
             }
         }
         default {
-            throw "[$LOG_TAG]Not yet implemented number of channels=$($Stream.channels) on stream index=$($Stream.index)"
+            throw "[$LOG_TAG]Not yet implemented number of audio channels=$($Stream.channels) on stream index=$($Stream.index)"
         }
     }
 }
@@ -187,219 +189,246 @@ $vSrc = @{} # stream obj, int idx
 $aSrc = @{}
 $sSrc = @{}
 #region probe input, decide what to convert
-$Probe = ffprobe -v error -print_format json -show_streams -show_entries format=duration $FileName 2>$null | ConvertFrom-Json
-$SubFile = Join-Path $File.Directory ($File.BaseName+'.srt') # TODO could be better, .srt is not the only format
-if (-not (Test-Path -PathType Leaf -LiteralPath $SubFile)) {
-    $SubFile = $null
-}
-if ($SubFile) {
-    $subProbe = ffprobe -print_format json -show_streams $SubFile 2>$null | ConvertFrom-Json
-    $sSrc.stream = $subProbe.streams[0]
-    $sSrc.idx = -1
-}
-foreach ($s in $Probe.streams) {
-    Write-Debug "[$LOG_TAG]Processing stream=$s"
-    switch ($s.codec_type) {
-        'video' {
-            if ($vSrc.stream -ne $null) {
-                if ($s.codec_name -eq 'mjpeg') {
-                    # cover art, ignore
-                    continue
+[PSCustomObject]$Probe = $null
+[string]$SubFile = $null
+function Examine-InputFile {
+    $script:Probe = ffprobe -v error -print_format json -show_streams -show_entries format=duration $FileName 2>$null | ConvertFrom-Json
+    $script:SubFile = Join-Path $File.Directory ($File.BaseName+'.srt') # TODO could be better, .srt is not the only format
+    if (-not (Test-Path -PathType Leaf -LiteralPath $SubFile)) {
+        $script:SubFile = $null
+    }
+    if ($SubFile) {
+        $subProbe = ffprobe -print_format json -show_streams $SubFile 2>$null | ConvertFrom-Json
+        $script:sSrc.stream = $subProbe.streams[0]
+        $script:sSrc.idx = -1
+    }
+    foreach ($s in $Probe.streams) {
+        Write-Debug "[$LOG_TAG]Processing stream=$s"
+        switch ($s.codec_type) {
+            'video' {
+                if ($vSrc.ContainsKey('stream') -and $vSrc.stream -ne $null) {
+                    if ($s.codec_name -eq 'mjpeg') {
+                        # cover art, ignore
+                        continue
+                    }
+                    else {
+                        throw "[$LOG_TAG]Second video stream found at index=$($s.index)"
+                    }
                 }
-                else {
-                    throw "[$LOG_TAG]Second video stream found at index=$($s.index)"
+                # TODO ranking and preference
+                $script:vSrc.stream = $s
+                $script:vSrc.idx = $s.index
+                Break
+            }
+            'audio' {
+                if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and $s.tags.PSobject.Properties['language'] -and -not ($s.tags.language -iLike '*eng*')) {
+                    Write-Debug "[$LOG_TAG]Skipping audio track: already have one and new is not English"
+                    Break
                 }
-            }
-            # TODO ranking and preference
-            $vSrc.stream = $s
-            $vSrc.idx = $s.index
-            Break
-        }
-        'audio' {
-            if ($aSrc.stream -ne $null -and $s.tags.PSobject.Properties['language'] -and -not ($s.tags.language -iLike '*eng*')) {
-                Write-Debug "[$LOG_TAG]Skipping audio track: already have one and new is not English"
+                if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and (Get-AudioCodecRank $aSrc.stream) -gt (Get-AudioCodecRank $s)) {
+                    Write-Debug "[$LOG_TAG]Skipping audio track: already have one and new one is worse"
+                    # TODO check language='eng'
+                    Break
+                }
+                if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and $aSrc.stream.tags.PSobject.Properties['language'] -and $aSrc.stream.tags.language -iLike '*eng*') {
+                    Write-Debug "[$LOG_TAG]Skipping audio track: already have one that is English"
+                    Break
+                }
+                Write-Debug "[$LOG_TAG]Taking audio track"
+                $script:aSrc.stream = $s
+                $script:aSrc.idx = $s.index
                 Break
             }
-            if ($aSrc.stream -ne $null -and (Get-AudioCodecRank $aSrc.stream) -gt (Get-AudioCodecRank $s)) {
-                Write-Debug "[$LOG_TAG]Skipping audio track: already have one and new one is worse"
-                # TODO check language='eng'
+            'subtitle' {
+                if ($SubFile) {
+                    # explicitly given, ignore any in input file
+                    Break
+                }
+                if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $s.tags.PSobject.Properties['language'] -and -not ($s.tags.language -iLike '*eng*')) {
+                    Write-Debug "[$LOG_TAG]Skipping sub track: already have one and new is not English"
+                    Break
+                }
+                if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.language -iLike '*eng*' -and $s.tags.PSobject.Properties['title'] -and $s.tags.title -iLike '*SDH*') {
+                    Write-Debug "[$LOG_TAG]Skipping sub track: already have an English and new is SDH"
+                    Break
+                }
+                if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.PSobject.Properties['language'] -and $sSrc.stream.tags.language -iLike '*eng*') {
+                    Write-Debug "[$LOG_TAG]Skipping sub track: already have one that is English"
+                    Break
+                }
+                Write-Debug "[$LOG_TAG]Taking sub track"
+                $script:sSrc.stream = $s
+                $script:sSrc.idx = $s.index
                 Break
             }
-            if ($aSrc.stream -ne $null -and $aSrc.stream.tags.PSobject.Properties['language'] -and $aSrc.stream.tags.language -iLike '*eng*') {
-                Write-Debug "[$LOG_TAG]Skipping audio track: already have one that is English"
+            default {
+                Write-Warning "[$LOG_TAG]Unknown codec type='$($s.codec_type)' name='$($s.codec_name)'"
                 Break
             }
-            Write-Debug "[$LOG_TAG]Taking audio track"
-            $aSrc.stream = $s
-            $aSrc.idx = $s.index
-            Break
-        }
-        'subtitle' {
-            if ($SubFile) {
-                # explicitly given, ignore any in input file
-                Break
-            }
-            if ($sSrc.stream -ne $null -and $s.tags.PSobject.Properties['language'] -and -not ($s.tags.language -iLike '*eng*')) {
-                Write-Debug "[$LOG_TAG]Skipping sub track: already have one and new is not English"
-                Break
-            }
-            if ($sSrc.stream -ne $null -and $sSrc.stream.tags.language -iLike '*eng*' -and $s.tags.PSobject.Properties['title'] -and $s.tags.title -iLike '*SDH*') {
-                Write-Debug "[$LOG_TAG]Skipping sub track: already have an English and new is SDH"
-                Break
-            }
-            if ($sSrc.stream -ne $null -and $sSrc.stream.tags.PSobject.Properties['language'] -and $sSrc.stream.tags.language -iLike '*eng*') {
-                Write-Debug "[$LOG_TAG]Skipping sub track: already have one that is English"
-                Break
-            }
-            Write-Debug "[$LOG_TAG]Taking sub track"
-            $sSrc.stream = $s
-            $sSrc.idx = $s.index
-            Break
-        }
-        default {
-            Write-Warning "[$LOG_TAG]Unknown codec type='$($s.codec_type)' name='$($s.codec_name)'"
-            Break
         }
     }
+ 
+    Write-Verbose "[$LOG_TAG]Chose vcodec='$($vSrc.stream.codec_name)'@$($vSrc.idx) acodec='$($aSrc.stream.codec_name)'$($aSrc.stream.channels)ch@$($aSrc.idx) scodec='$(($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null) ? $($sSrc.stream.codec_name) : '')'@$($sSrc.ContainsKey('idx') ? $sSrc.idx : '')"
 }
-
-Write-Verbose "[$LOG_TAG]Chose vcodec='$($vSrc.stream.codec_name)'@$($vSrc.idx) acodec='$($aSrc.stream.codec_name)'$($aSrc.stream.channels)ch@$($aSrc.idx) scodec='$(${sSrc.stream}.codec_name)'@$($sSrc.idx)"
 
 # figure out what needs to be done (consider codecs; video: resolution, dynamic range, color, and field_order)
-$vDestCodec = $Matcher.result.vcodecs[0]
-if ($Matcher.result.vcodecs -Contains $vSrc.stream.codec_name -and $Matcher.result.allowcopy) {
-    $vDestCodec = 'copy'
-}
-if ($Matcher.result.vcodecs -Contains 'hevc' -and -not ($vDestCodec -eq 'hevc' -or ($vDestCodec -eq 'copy' -and $vSrc.stream.codec_name -eq 'hevc')) -and (($vSrc.stream.width -gt 1920 -or $vSrc.stream.height -gt 1080) -or ($vSrc.stream.profile -iLike '*10' -or $vSrc.stream.pix_fmt -iMatch '.*10[bl]e') -or ($vSrc.stream.color_space -eq 'bt2020nc' -or $vSrc.stream.color_transfer -eq 'smpte2084' -or $vSrc.stream.color_primaries -eq 'bt2020'))) {
-    # compatibility with some TVs
-    $vDestCodec = 'libx265'
-    Write-Debug "[$LOG_TAG]Video stream will be $vDestCodec : >FHD or 10-bit color or HDR"
-}
-$aDestCodec = $null
-if ($aSrc.stream.channels -le 2) {
-    $aDestCodec = $Matcher.result.acodecs[0]
-    if ($Matcher.result.acodecs -Contains $aSrc.stream.codec_name -and $Matcher.result.allowcopy) {
-        $aDestCodec = 'copy'
+[string]$vDestCodec = $null
+[string]$aDestCodec = $null
+[string]$sDestCodec = $null
+function Select-Codecs {
+    $script:vDestCodec = $Matcher.result.vcodecs[0]
+    if ($Matcher.result.vcodecs -Contains $vSrc.stream.codec_name -and $Matcher.result.allowcopy) {
+        $script:vDestCodec = 'copy'
     }
-}
-else {
-    $aDestCodec = $Matcher.result.acodecs6[0]
-    if ($Matcher.result.acodecs6 -Contains $aSrc.stream.codec_name -and $Matcher.result.allowcopy) {
-        $aDestCodec = 'copy'
+    if ($Matcher.result.vcodecs -Contains 'hevc' -and -not ($vDestCodec -eq 'hevc' -or ($vDestCodec -eq 'copy' -and $vSrc.stream.codec_name -eq 'hevc')) -and (($vSrc.stream.width -gt 1920 -or $vSrc.stream.height -gt 1080) -or ($vSrc.stream.profile -iLike '*10' -or $vSrc.stream.pix_fmt -iMatch '.*10[bl]e') -or ($vSrc.stream.color_space -eq 'bt2020nc' -or $vSrc.stream.color_transfer -eq 'smpte2084' -or $vSrc.stream.color_primaries -eq 'bt2020'))) {
+        # compatibility with some TVs
+        $script:vDestCodec = 'libx265'
+        Write-Debug "[$LOG_TAG]Video stream will be $vDestCodec : >FHD or 10-bit color or HDR"
     }
-}
-$sDestCodec = $Matcher.result.scodecs[0]
-if (($Matcher.result.scodecs -Contains $sSrc.stream.codec_name -and $Matcher.result.allowcopy)) {
-    $sDestCodec = 'copy'
-}
-elseif ($BITMAP_SUBS -Contains $sSrc.stream.codec_name) {
-    $bitmapAllowedIntersection = $Matcher.result.scodecs | Where-Object {$BITMAP_SUBS -Contains $_}
-    if ($bitmapAllowedIntersection.Length -eq 0) {
-        $sDestCodec = 'copy'
-        Write-Debug "[$LOG_TAG]Subtitle stream will be copied as $($sSrc.stream.codec_name) : is bitmap type and no bitmap types in allow list"
+    $script:aDestCodec = $null
+    if ($aSrc.stream.channels -le 2) {
+        $script:aDestCodec = $Matcher.result.acodecs[0]
+        if ($Matcher.result.acodecs -Contains $aSrc.stream.codec_name -and $Matcher.result.allowcopy) {
+            $script:aDestCodec = 'copy'
+        }
     }
     else {
-        $sDestCodec = $bitmapAllowedIntersection[0]
-        Write-Debug "[$LOG_TAG]Subtitle stream will be $sDestCodec : is first allowed bitmap type"
+        $script:aDestCodec = $Matcher.result.acodecs6[0]
+        if ($Matcher.result.acodecs6 -Contains $aSrc.stream.codec_name -and $Matcher.result.allowcopy) {
+            $script:aDestCodec = 'copy'
+        }
     }
+    $script:sDestCodec = $Matcher.result.scodecs[0]
+    if (($Matcher.result.scodecs -Contains $sSrc.stream.codec_name -and $Matcher.result.allowcopy)) {
+        $script:sDestCodec = 'copy'
+    }
+    elseif ($BITMAP_SUBS -Contains $sSrc.stream.codec_name) {
+        $bitmapAllowedIntersection = $Matcher.result.scodecs | Where-Object {$BITMAP_SUBS -Contains $_}
+        if ($bitmapAllowedIntersection.Length -eq 0) {
+            $script:sDestCodec = 'copy'
+            Write-Debug "[$LOG_TAG]Subtitle stream will be copied as $($sSrc.stream.codec_name) : is bitmap type and no bitmap types in allow list"
+        }
+        else {
+            $script:sDestCodec = $bitmapAllowedIntersection[0]
+            Write-Debug "[$LOG_TAG]Subtitle stream will be $sDestCodec : is first allowed bitmap type"
+        }
+    }
+    Write-Verbose "[$LOG_TAG]Producing vcodec='$($vDestCodec)' acodec='$($aDestCodec)' scodec='$($sDestCodec)'"
 }
-
-Write-Verbose "[$LOG_TAG]Producing vcodec='$($vDestCodec)' acodec='$($aDestCodec)' scodec='$($sDestCodec)'"
 #endregion
 
 #region convert
-$OutFullName = $null
-if ($Matcher.result.naming -eq 'plex') {
-    $OutFullName = Join-Path $Matcher.result.path (Guess-PlexName $File.Name)
-    $path = Split-Path $OutFullName -Parent
-    New-Item -ItemType Directory -Force -Path $path > $null
-}
-else {
-    $OutFullName = Join-Path $Matcher.result.path $File.BaseName
-}
-
-[string[]]$ffArgs = @('ffmpeg','-i', "`"$FileName`"")
-if ($SubFile) {
-    $ffArgs += @('-i', "`"$SubFile`"")
-}
-# TODO Move-Item if possible instead of copying streams to new container
-$ffArgs += @('-map', "0:$($vSrc.idx)", '-map', "0:$($aSrc.idx)")
-if ($SubFile) {
-    $ffArgs += @('-map', '1:s')
-}
-elseif ($sSrc.stream) {
-    $ffArgs += @('-map', "0:$($sSrc.idx)")
-}
-if ($SubFile -or $sSrc.stream) {
-    $ffArgs += @('-c:s', $sDestCodec)
-}
-$ffArgs += @('-c:v', $vDestCodec, '-crf', '22', '-c:a', $aDestCodec)
-if ($vSrc.stream.height -gt $Matcher.result.maxheight) {
-    # could do this with force_original_aspect_ratio=decrease:force_divisible_by=2 but that's quirky
-    $ffArgs += @('-vf', "scale=-2:$($Matcher.result.maxheight)")
-}
-if (@('hevc','libx265') -Contains $vDestCodec) {
-    $ffArgs += @('-x265-params', 'log-level=warning')
-}
-if ($aDestCodec -eq 'ac3' -and $aSrc.stream.channels -gt 6 -and $aSrc.stream.channel_layout -Match '\.1') {
-    # for some reason ffmpeg defaults to not including LFE when downmixing to ac3
-    $ffArgs += @('-ac', '6')
-}
-$destExtension = $null
-if (($sSrc.stream -or $SubFile) -and $Matcher.result.containers -Contains 'mkv') {
-    $destExtension = 'mkv'
-}
-elseif ($Matcher.result.containers -Contains $File.Extension.Substring(1)) {
-    $destExtension = $File.Extension.Substring(1)
-}
-else {
-    $destExtension = $Matcher.result.containers[0]
-}
-$OutFullName += '.' + $destExtension
-$ffArgs += "`"$OutFullName`""
-if ($VerbosePreference -eq 'SilentlyContinue') {
-    $ffArgs += @('-hide_banner', '-loglevel', 'warning')
-}
-if (Test-Path -LiteralPath $OutFullName) {
-    Write-Warning "[$LOG_TAG]Skipping, output file already exists"
-}
-else {
-    [string]$cmd = [string]::Join(' ', $ffArgs)
-    Write-Output "[$LOG_TAG]$cmd"
-    # TODO environment variable for dry run
-    if ($Env:DRY_RUN) {
-        Write-Output "[$LOG_TAG]Dry run, but would have run: $cmd"
+function Invoke-Ffmpeg {
+    $OutFullName = $null
+    if ($Matcher.result.naming -eq 'plex') {
+        $OutFullName = Join-Path $Matcher.result.path (Guess-PlexName $File.Name)
+        $path = Split-Path $OutFullName -Parent
+        New-Item -ItemType Directory -Force -Path $path > $null
     }
     else {
-        Invoke-Expression $cmd -ErrorVariable fferr
-        $retCode = $LASTEXITCODE
-        if ($retCode -eq 0) {
-            Write-Verbose "[$LOG_TAG]Succeeded ($retCode), deleting input files"
-            Remove-Item -LiteralPath $File
-            if ($SubFile) {
-                Remove-Item -LiteralPath $SubFile
-            }
+        $OutFullName = Join-Path $Matcher.result.path $File.BaseName
+    }
+
+    [string[]]$ffArgs = @('ffmpeg','-i', "`"$FileName`"")
+    if ($SubFile) {
+        $ffArgs += @('-i', "`"$SubFile`"")
+    }
+    # TODO Move-Item if possible instead of copying streams to new container
+    $ffArgs += @('-map', "0:$($vSrc.idx)", '-map', "0:$($aSrc.idx)")
+    if ($SubFile) {
+        $ffArgs += @('-map', '1:s')
+    }
+    elseif ($sSrc.stream) {
+        $ffArgs += @('-map', "0:$($sSrc.idx)")
+    }
+    if ($SubFile -or $sSrc.stream) {
+        $ffArgs += @('-c:s', $sDestCodec)
+    }
+    $ffArgs += @('-c:v', $vDestCodec, '-crf', '22', '-c:a', $aDestCodec)
+    if ($vSrc.stream.height -gt $Matcher.result.maxheight) {
+        # could do this with force_original_aspect_ratio=decrease:force_divisible_by=2 but that's quirky
+        $ffArgs += @('-vf', "scale=-2:$($Matcher.result.maxheight)")
+    }
+    if (@('hevc','libx265') -Contains $vDestCodec) {
+        $ffArgs += @('-x265-params', 'log-level=warning')
+    }
+    if ($aDestCodec -eq 'ac3' -and $aSrc.stream.channels -gt 6 -and $aSrc.stream.channel_layout -Match '\.1') {
+        # for some reason ffmpeg defaults to not including LFE when downmixing to ac3
+        $ffArgs += @('-ac', '6')
+    }
+    $destExtension = $null
+    if (($sSrc.stream -or $SubFile) -and $Matcher.result.containers -Contains 'mkv') {
+        $destExtension = 'mkv'
+    }
+    elseif ($Matcher.result.containers -Contains $File.Extension.Substring(1)) {
+        $destExtension = $File.Extension.Substring(1)
+    }
+    else {
+        $destExtension = $Matcher.result.containers[0]
+    }
+    $OutFullName += '.' + $destExtension
+    $ffArgs += "`"$OutFullName`""
+    if ($VerbosePreference -eq 'SilentlyContinue') {
+        $ffArgs += @('-hide_banner', '-loglevel', 'warning')
+    }
+    if (Test-Path -LiteralPath $OutFullName) {
+        Write-Warning "[$LOG_TAG]Skipping, output file already exists"
+    }
+    else {
+        [string]$cmd = [string]::Join(' ', $ffArgs)
+        Write-Output "[$LOG_TAG]$cmd"
+        # TODO environment variable for dry run
+        if ($Env:DRY_RUN) {
+            Write-Output "[$LOG_TAG]Dry run, but would have run: $cmd"
         }
         else {
-            if (Test-Path -LiteralPath $OutFullName) {
-                if ((Get-Item -LiteralPath $OutFullName).Length -eq 0) {
-                    # if ffmpeg fails during initialization, it still creates an empty output file
-                    Remove-Item -LiteralPath $OutFullName
-                    throw "[$LOG_TAG]Conversion failed ($retCode). Bad parameters to ffmpeg?" $fferr
-                }
-                elseif ([Math]::Abs((fprobe -v error -print_format json -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $OutFullName) - $Probe.format.duration) -gt 1) {
-                    # duration of output is significantly different from input
-                    throw "[$LOG_TAG]Output file is wrong length ($retCode). You should probably delete the output and retry." $fferr
-                }
-                else {
-                    throw "[$LOG_TAG]Unknown error occurred ($retCode). Please report this." $fferr
+            Invoke-Expression $cmd -ErrorVariable fferr
+            $retCode = $LASTEXITCODE
+            if ($retCode -eq 0) {
+                Write-Verbose "[$LOG_TAG]Succeeded ($retCode), deleting input files"
+                Remove-Item -LiteralPath $File
+                if ($SubFile) {
+                    Remove-Item -LiteralPath $SubFile
                 }
             }
             else {
-                throw "[$LOG_TAG]No output file produced ($retCode). Odd." $fferr
+                if (Test-Path -LiteralPath $OutFullName) {
+                    if ((Get-Item -LiteralPath $OutFullName).Length -eq 0) {
+                        # if ffmpeg fails during initialization, it still creates an empty output file
+                        Remove-Item -LiteralPath $OutFullName
+                        throw "[$LOG_TAG]Conversion failed ($retCode). Bad parameters to ffmpeg? $fferr"
+                    }
+                    elseif ([Math]::Abs((fprobe -v error -print_format json -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $OutFullName) - $Probe.format.duration) -gt 1) {
+                        # duration of output is significantly different from input
+                        throw "[$LOG_TAG]Output file is wrong length ($retCode). You should probably delete the output and retry. $fferr"
+                    }
+                    else {
+                        throw "[$LOG_TAG]Unknown error occurred ($retCode). Please report this. $fferr"
+                    }
+                }
+                else {
+                    throw "[$LOG_TAG]No output file produced ($retCode). Odd. $fferr"
+                }
             }
-            # TODO catch errors and log to file
         }
+    }
+}
+#endregion
+
+#region main entry point
+try {
+    Parse-Config
+    Examine-InputFile
+    Select-Codecs
+    Invoke-Ffmpeg
+}
+catch {
+    if ($Config.PSobject.Properties['logerr'] -and $Config.logerr -eq $true) {
+        $errFileName = Join-Path $Matcher.dir "$($File.Name).err.log"
+        Write-Error -Message $_ 2>&1 | Tee-Object -LiteralPath $errFileName
+    }
+    else {
+        Write-Error -Message $_
     }
 }
 Write-Output "[$LOG_TAG]Complete."

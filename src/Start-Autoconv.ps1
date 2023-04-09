@@ -78,6 +78,7 @@ function Guess-PlexName {
     $EXTRAS_TYPES.Add('short', 'Shorts')
     $EXTRAS_TYPES.Add('trailer', 'Trailers')
     $EXTRAS_TYPES.Add('other', 'Other')
+    $words = ($OrigName -Replace ' - ',' ') -Replace '  ',' '
     $words = $OrigName.Split([char[]]@('.', ' '))
     [string]$year = ''
     [string]$season = ''

@@ -398,7 +398,7 @@ function Invoke-Ffmpeg {
                         Remove-Item -LiteralPath $OutFullName
                         throw "[$LOG_TAG]Conversion failed ($retCode). Bad parameters to ffmpeg? $fferr"
                     }
-                    elseif ([Math]::Abs((fprobe -v error -print_format json -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $OutFullName) - $Probe.format.duration) -gt 1) {
+                    elseif ([Math]::Abs((ffprobe -v error -print_format json -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $OutFullName) - $Probe.format.duration) -gt 1) {
                         # duration of output is significantly different from input
                         throw "[$LOG_TAG]Output file is wrong length ($retCode). You should probably delete the output and retry. $fferr"
                     }

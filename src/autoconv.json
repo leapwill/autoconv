@@ -6,7 +6,7 @@
             "result": {
                 "vcodecs": ["h264"],
                 "maxheight": "2160",
-                "acodecs": ["aac", "ac3"],
+                "acodecs": ["aac", "ac3", "opus"],
                 "acodecs6": ["ac3"],
                 "allowcopy": true,
                 "naming": "copy",

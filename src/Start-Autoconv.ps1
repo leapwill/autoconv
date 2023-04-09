@@ -314,6 +314,16 @@ function Select-Codecs {
             Write-Debug "[$LOG_TAG]Subtitle stream will be $sDestCodec : is first allowed bitmap type"
         }
     }
+    # convert codec to encoder where names are different
+    $vDestCodec = switch ($vDestCodec) {
+        'x264' { 'libx264' }
+        'hevc' { 'libx265' }
+        default { $vDestCodec }
+    }
+    $aDestCodec = switch ($aDestCodec) {
+        'opus' { 'libopus' }
+        default { $aDestCodec }
+    }
     Write-Verbose "[$LOG_TAG]Producing vcodec='$($vDestCodec)' acodec='$($aDestCodec)' scodec='$($sDestCodec)'"
 }
 #endregion

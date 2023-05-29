@@ -43,6 +43,8 @@ For Plex name detection, movies should be `Title Year` (year may be in parenthes
 
 Extras are supported. The extra file name must start with the movie name and year, and then contain an extra name, hyphen, and type of extra in square brackets. Supported extras types are `behindthescenes`, `deleted`, `featurette`, `interview`, `scene`, `short`, `trailer`, and `other`, per [the Plex documentation](https://support.plex.tv/articles/local-files-for-trailers-and-extras/).
 
+Tags `tvdb`, `tmdb`, `imdb`, and `edition` are supported.
+
 Example:
 - Movie: `Avatar 2009.mp4`
 - Subtitles: `Avatar 2009.srt`

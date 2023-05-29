@@ -102,7 +102,16 @@ function Guess-PlexName {
         $extraName = $Matches[1]
         $extraType = $Matches[2]
     }
-    Write-Debug "[$LOG_TAG]isTv:$isTv year:$year season:$season episode:$episode seasEpIdx:$seasEpIdx isExtra:$($extraType -ne '')"
+    [string]$TAGS_PATTERN = '{(tvdb|tmdb|imdb)-[^}]+}'
+    [string]$tags = ''
+    if ($OrigName -Match $TAGS_PATTERN) {
+        $tags = ' ' + (($words | Select-String $TAGS_PATTERN -AllMatches).Matches | Join-String -Property Value -Separator ' ')
+    }
+    [string]$editionTag = ''
+    if ($OrigName -Match '{edition-[^}]+}') {
+        $editionTag = ' ' + $Matches[0]
+    }
+    Write-Debug "[$LOG_TAG]isTv:$isTv year:$year season:$season episode:$episode seasEpIdx:$seasEpIdx isExtra:$($extraType -ne '') tags:$tags"
 
     [int]$nameStopIdx = -1
     if ($year -and $seasEpIdx) {
@@ -116,13 +125,13 @@ function Guess-PlexName {
     }
     $name = [System.ArraySegment[string]]::new($words, 0, $nameStopIdx)
     if ($isTv) {
-        return (Join-Path $name "Season $season" "$name - s${season}e$episode")
+        return (Join-Path "${name}${tags}" "Season $season" "$name - s${season}e$episode")
     }
     elseif ($year -ne $null -and -not $isTv) {
         if ($extraType -ne '') {
-            return (Join-Path "$name (${year})" $EXTRAS_TYPES[$extraType] $extraName)
+            return (Join-Path "$name (${year})${tags}" $EXTRAS_TYPES[$extraType] $extraName)
         }
-        return (Join-Path "$name (${year})" "$name (${year})")
+        return (Join-Path "$name (${year})${tags}" "$name (${year})${tags}${editionTag}")
     }
     else {
         throw "[$LOG_TAG]Indecipherable movie or TV name=$OrigName"

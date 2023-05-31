@@ -435,10 +435,17 @@ function Invoke-Ffmpeg {
 #endregion
 
 #region main entry point
+[System.Threading.Mutex]$mutex = $null
+[boolean]$gotMutex = $false
 try {
     Parse-Config
     Examine-InputFile
     Select-Codecs
+    $mutex = New-Object System.Threading.Mutex($false, "Global\$($File.Name)")
+    $gotMutex = $mutex.WaitOne(60 * 1000) # 1 minute to let other process get started
+    if (-not $gotMutex) {
+        Write-Debug "[$LOG_TAG]Failed to get mutex. Maybe inotify double-fired?"
+    }
     Invoke-Ffmpeg
 }
 catch {
@@ -448,6 +455,11 @@ catch {
     }
     else {
         Write-Error -Message $_
+    }
+}
+finally {
+    if ($mutex -ne $null -and $gotMutex) {
+        $mutex.ReleaseMutex()
     }
 }
 Write-Output "[$LOG_TAG]Complete."

@@ -375,6 +375,7 @@ function Invoke-Ffmpeg {
         # for some reason ffmpeg defaults to not including LFE when downmixing to ac3
         $ffArgs += @('-ac', '6')
     }
+    $ffArgs += $Matcher.ffargs
     $destExtension = $null
     if (($sSrc.stream -or $SubFile) -and $Matcher.result.containers -Contains 'mkv') {
         $destExtension = 'mkv'

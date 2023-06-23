@@ -13,7 +13,8 @@
                 "path": "/out",
                 "containers": ["mkv"],
                 "scodecs": ["srt"]
-            }
+            },
+            "ffargs": []
         }
     ],
     "logerr": false

@@ -31,6 +31,7 @@ matchers: # list of file path prefix matchers, the first matching one is used
     - mkv
   ffargs: [] # extra arguments to ffmpeg (e.g. preset, profile, crf)
 logerr: true # optional, failures will be logged in <FileName>.err.log in the matcher dir
+maxConcurrent: 1 # number of concurrent conversions to allow
 ```
 
 Currently using JSON for native PowerShell support.

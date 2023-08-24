@@ -439,6 +439,18 @@ function Invoke-Ffmpeg {
 [System.Threading.Mutex]$mutex = $null
 [boolean]$gotMutex = $false
 try {
+    # wait for available resources (named semaphores are not supported on Linux. this does not preserve queue order)
+    [int]$maxConcurrent = [Math]::Max([int]($Config.maxConcurrent), 1)
+    [int]$ppid=(Get-Process -Id $PID).Parent.Id
+    do {
+        [int[]]$cpids = (Get-Process -Name 'pwsh' | Where-Object {$_.Parent.Id -eq $ppid}).Id
+        [int]$currentRunning = (Get-Process -Name 'ffmpeg' | Where-Object {$cpids -Contains $_.Id} | Measure-Object).Count
+        if ($currentRunning -lt $maxConcurrent) {
+            break
+        }
+        Write-Verbose "[$LOG_TAG]Found $currentRunning/$maxConcurrent already running, trying again later"
+        Start-Sleep -Seconds 30
+    } while (true)
     Parse-Config
     Examine-InputFile
     Select-Codecs

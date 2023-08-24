@@ -17,5 +17,6 @@
             "ffargs": []
         }
     ],
-    "logerr": false
+    "logerr": false,
+    "maxConcurrent": 1
 }

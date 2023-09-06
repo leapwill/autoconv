@@ -22,7 +22,7 @@ $NotifArr = $Notif.Split(',')
 [string]$WatchedDir = $NotifArr[0]
 [string]$FileName = $NotifArr[-1]
 [string[]]$Events = $NotifArr[1..($NotifArr.Length-2)]
-Write-Output "[$LOG_TAG]Recieved event dir=$($WatchedDir) file=$($FileName) events=$($Events)"
+Write-Output "[$LOG_TAG]Received event dir=$($WatchedDir) file=$($FileName) events=$($Events)"
 $FileName = $WatchedDir + $FileName
 $File = Get-Item -LiteralPath $FileName
 [string[]]$VIDEO_EXTENSIONS = @('.3g2','.3gp','.3gp2','.3gpp','.amr','.amv','.asf','.avi','.bdmv','.bik','.d2v','.divx','.drc','.dsa','.dsm','.dss','.dsv','.evo','.f4v','.flc','.fli','.flic','.flv','.hdmov','.ifo','.ivf','.m1v','.m2p','.m2t','.m2ts','.m2v','.m4b','.m4p','.m4v','.mkv','.mk3d','.mp2v','.mp4','.mp4v','.mpe','.mpeg','.mpg','.mpls','.mpv2','.mpv4','.mov','.mts','.mxf','.ogm','.ogv','.pss','.pva','.qt','.ram','.ratdvd','.rm','.rmm','.rmvb','.roq','.rpm','.smil','.smk','.swf','.tp','.tpr','.ts','.vob','.vp6','.webm','.wm','.wmp','.wmv')
@@ -444,13 +444,13 @@ try {
     [int]$ppid=(Get-Process -Id $PID).Parent.Id
     do {
         [int[]]$cpids = (Get-Process -Name 'pwsh' | Where-Object {$_.Parent.Id -eq $ppid}).Id
-        [int]$currentRunning = (Get-Process -Name 'ffmpeg' | Where-Object {$cpids -Contains $_.Id} | Measure-Object).Count
+        [int]$currentRunning = (Get-Process -Name 'ffmpeg' 2>$null | Where-Object {$cpids -Contains $_.Parent.Id} | Measure-Object).Count
         if ($currentRunning -lt $maxConcurrent) {
             break
         }
         Write-Verbose "[$LOG_TAG]Found $currentRunning/$maxConcurrent already running, trying again later"
         Start-Sleep -Seconds 30
-    } while (true)
+    } while ($true)
     Parse-Config
     Examine-InputFile
     Select-Codecs

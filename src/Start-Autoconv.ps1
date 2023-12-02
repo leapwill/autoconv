@@ -163,6 +163,7 @@ function Get-AudioCodecRank {
             'dts' {
                 switch ($Stream.profile) {
                     'DTS-HD MA' { return 90 } # great but TV won't play
+                    'DTS' { return 87 }
                     default {
                         throw "[$LOG_TAG]Uninvestigated multi-channel DTS profile='$($Stream.profile)' on stream index=$($Stream.index)"
                     }
@@ -176,14 +177,16 @@ function Get-AudioCodecRank {
         }
     }
     switch -Regex ($Stream.channels) {
-        '6|8' {
+        '3|4|5|6|7|8|9|10|11|12' {
             return (Get-SurroundRank $Stream) + ($Stream.channels * 100)
         }
         2 {
             switch ($Stream.codec_name) {
+                'opus' { return 280 }
                 'aac' { return 270 }
                 default {
-                    throw "[$LOG_TAG]Unknown 2ch codec='$($Stream.codec_name)' on stream index=$($Stream.index)"
+                    Write-Warning "[$LOG_TAG]Unknown 2ch codec='$($Stream.codec_name)' on stream index=$($Stream.index)"
+                    return 200
                 }
             }
         }

@@ -9,6 +9,7 @@
                 "acodecs": ["aac", "ac3", "opus"],
                 "acodecs6": ["ac3"],
                 "allowcopy": true,
+                "keepextra": "",
                 "naming": "copy",
                 "path": "/out",
                 "containers": ["mkv"],

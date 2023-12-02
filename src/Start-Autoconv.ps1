@@ -203,6 +203,8 @@ $sSrc = @{}
 #region probe input, decide what to convert
 [PSCustomObject]$Probe = $null
 [string]$SubFile = $null
+[int[]]$aExtraStreams = @()
+[int[]]$sExtraStreams = @()
 function Examine-InputFile {
     $script:Probe = ffprobe -v error -print_format json -show_streams -show_entries format=duration $FileName 2>$null | ConvertFrom-Json
     $script:SubFile = Join-Path $File.Directory ($File.BaseName+'.srt') # TODO could be better, .srt is not the only format
@@ -243,7 +245,12 @@ function Examine-InputFile {
                     Break
                 }
                 if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and $aSrc.stream.tags.PSobject.Properties['language'] -and $aSrc.stream.tags.language -iLike '*eng*') {
-                    Write-Debug "[$LOG_TAG]Skipping audio track: already have one that is English"
+                    if ($Matcher.keepextra -iLike '*a*') {
+                        $script:aExtraStreams += $s.index
+                    }
+                    else {
+                        Write-Debug "[$LOG_TAG]Skipping audio track: already have one that is English"
+                    }
                     Break
                 }
                 Write-Debug "[$LOG_TAG]Taking audio track"
@@ -261,11 +268,21 @@ function Examine-InputFile {
                     Break
                 }
                 if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.language -iLike '*eng*' -and $s.tags.PSobject.Properties['title'] -and $s.tags.title -iLike '*SDH*') {
-                    Write-Debug "[$LOG_TAG]Skipping sub track: already have an English and new is SDH"
+                    if ($Matcher.keepextra -iLike '*s*') {
+                        $script:sExtraStreams += $s.index
+                    }
+                    else {
+                        Write-Debug "[$LOG_TAG]Skipping sub track: already have an English and new is SDH"
+                    }
                     Break
                 }
                 if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.PSobject.Properties['language'] -and $sSrc.stream.tags.language -iLike '*eng*') {
-                    Write-Debug "[$LOG_TAG]Skipping sub track: already have one that is English"
+                    if ($Matcher.keepextra -iLike '*s*') {
+                        $script:sExtraStreams += $s.index
+                    }
+                    else {
+                        Write-Debug "[$LOG_TAG]Skipping sub track: already have one that is English"
+                    }
                     Break
                 }
                 Write-Debug "[$LOG_TAG]Taking sub track"
@@ -362,6 +379,18 @@ function Invoke-Ffmpeg {
     }
     elseif ($sSrc.stream) {
         $ffArgs += @('-map', "0:$($sSrc.idx)")
+    }
+    foreach ($i in $aExtraStreams) {
+        $ffArgs += @('-map', "0:$i")
+    }
+    foreach ($i in $sExtraStreams) {
+        $ffArgs += @('-map', "0:$i")
+    }
+    if ($Matcher.keepextra -iLike '*d*') {
+        $ffArgs += @('-map', '0:d?')
+    }
+    if ($Matcher.keepextra -iLike '*t*') {
+        $ffArgs += @('-map', '0:t?')
     }
     if ($SubFile -or $sSrc.stream) {
         $ffArgs += @('-c:s', $sDestCodec)

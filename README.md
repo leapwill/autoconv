@@ -25,6 +25,7 @@ matchers: # list of file path prefix matchers, the first matching one is used
     - srt
     - ass
     allowcopy: true # don't re-encode a stream if it's already compliant
+    keepextra: "asdt" # which types of streams to keep non-selected of (after the selected streams)
     naming: 'copy' # or 'plex' to attempt to use Plex-compatible movie and TV names, including the necessary paths
     path: '/out' # base directory for output
     containers: # allowable containers (mkv is recommended!)

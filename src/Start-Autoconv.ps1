@@ -161,9 +161,9 @@ function Get-AudioCodecRank {
                 }
             }
             'dts' {
-                switch ($Stream.profile) {
-                    'DTS-HD MA' { return 90 } # great but TV won't play
-                    'DTS' { return 87 }
+                switch -Regex ($Stream.profile) {
+                    'DTS-HD MA|60' { return 90 } # great but TV won't play
+                    'DTS|20' { return 87 }
                     default {
                         throw "[$LOG_TAG]Uninvestigated multi-channel DTS profile='$($Stream.profile)' on stream index=$($Stream.index)"
                     }

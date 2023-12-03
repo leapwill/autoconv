@@ -246,7 +246,7 @@ function Examine-InputFile {
                     Break
                 }
                 if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and $aSrc.stream.tags.PSobject.Properties['language'] -and $aSrc.stream.tags.language -iLike '*eng*') {
-                    if ($Matcher.keepextra -iLike '*a*') {
+                    if ($Matcher.result.keepextra -iLike '*a*') {
                         $script:aExtraStreams += $s.index
                     }
                     else {
@@ -269,7 +269,7 @@ function Examine-InputFile {
                     Break
                 }
                 if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.language -iLike '*eng*' -and $s.tags.PSobject.Properties['title'] -and $s.tags.title -iLike '*SDH*') {
-                    if ($Matcher.keepextra -iLike '*s*') {
+                    if ($Matcher.result.keepextra -iLike '*s*') {
                         $script:sExtraStreams += $s.index
                     }
                     else {
@@ -278,7 +278,7 @@ function Examine-InputFile {
                     Break
                 }
                 if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.PSobject.Properties['language'] -and $sSrc.stream.tags.language -iLike '*eng*') {
-                    if ($Matcher.keepextra -iLike '*s*') {
+                    if ($Matcher.result.keepextra -iLike '*s*') {
                         $script:sExtraStreams += $s.index
                     }
                     else {
@@ -387,10 +387,10 @@ function Invoke-Ffmpeg {
     foreach ($i in $sExtraStreams) {
         $ffArgs += @('-map', "0:$i")
     }
-    if ($Matcher.keepextra -iLike '*d*') {
+    if ($Matcher.result.keepextra -iLike '*d*') {
         $ffArgs += @('-map', '0:d?')
     }
-    if ($Matcher.keepextra -iLike '*t*') {
+    if ($Matcher.result.keepextra -iLike '*t*') {
         $ffArgs += @('-map', '0:t?')
     }
     if ($SubFile -or $sSrc.stream) {

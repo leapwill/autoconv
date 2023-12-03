@@ -241,8 +241,12 @@ function Examine-InputFile {
                     Break
                 }
                 if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and (Get-AudioCodecRank $aSrc.stream) -gt (Get-AudioCodecRank $s)) {
-                    Write-Debug "[$LOG_TAG]Skipping audio track: already have one and new one is worse"
-                    # TODO check language='eng'
+                    if ($Matcher.result.keepextra -iLike '*a*' -and $aSrc.stream.tags.PSobject.Properties['language'] -and $aSrc.stream.tags.language -iLike '*eng*') {
+                        $script:aExtraStreams += $s.index
+                    }
+                    else {
+                        Write-Debug "[$LOG_TAG]Skipping audio track: already have one and new one is worse"
+                    }
                     Break
                 }
                 if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and $aSrc.stream.tags.PSobject.Properties['language'] -and $aSrc.stream.tags.language -iLike '*eng*') {

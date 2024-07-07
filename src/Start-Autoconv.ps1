@@ -180,11 +180,11 @@ function Get-AudioCodecRank {
         '3|4|5|6|7|8|9|10|11|12' {
             return (Get-SurroundRank $Stream) + ($Stream.channels * 100)
         }
-        2 {
+        '1|2' {
             switch ($Stream.codec_name) {
-                'opus' { return 280 }
-                'aac' { return 270 }
-                'ac3' { return 260 }
+                'opus' { return ($Stream.channels * 100) + 80 }
+                'aac' { return ($Stream.channels * 100) + 70 }
+                'ac3' { return ($Stream.channels * 100) + 60 }
                 default {
                     Write-Warning "[$LOG_TAG]Unknown 2ch codec='$($Stream.codec_name)' on stream index=$($Stream.index)"
                     return 200

@@ -18,7 +18,7 @@ if ("$Env:DEBUG" -eq '1') {
   $VerbosePreference = 'Continue'
   $DebugPreference = 'Continue'
 }
-$NotifArr = $Notif.Split(',')
+$NotifArr = $Notif.Split('_////')
 [string]$WatchedDir = $NotifArr[0]
 [string]$FileName = $NotifArr[-1]
 [string[]]$Events = $NotifArr[1..($NotifArr.Length-2)]

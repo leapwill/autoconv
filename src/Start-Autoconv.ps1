@@ -296,7 +296,7 @@ function Examine-InputFile {
                 Break
             }
             default {
-                Write-Warning "[$LOG_TAG]Unknown codec type='$($s.codec_type)' name='$($s.codec_name)'"
+                Write-Warning "[$LOG_TAG]Unknown codec type='$($s.codec_type)' name='$($s.codec_name)' tag='$($s.codec_tag_string)'"
                 Break
             }
         }

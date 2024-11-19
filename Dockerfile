@@ -1,14 +1,25 @@
-FROM jrottenberg/ffmpeg:5.1-alpine313 AS ffbuild
-FROM mcr.microsoft.com/powershell:lts-alpine-3.13
-COPY --from=ffbuild /usr/local /usr/local
-ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64
-# ffmpeg dynamic linking
-RUN apk add --no-cache --update libgcc libstdc++ ca-certificates libcrypto1.1 libssl1.1 libgomp expat git
+FROM lscr.io/linuxserver/ffmpeg:latest
 
 LABEL "org.opencontainers.image.source"="https://github.com/leapwill/autoconv"
 
-RUN apk add --no-cache --update inotify-tools
+RUN <<EOR
+set -eu
+ver=$(curl -Ls -o /dev/null -w '%{url_effective}' 'https://github.com/PowerShell/PowerShell/releases/latest')
+ver=$(grep -Po '[0-9.]+$' <<EOF
+$ver
+EOF
+)
+echo "Fetching PowerShell version $ver"
+curl -s -L -o /tmp/pwsh.deb "https://github.com/PowerShell/PowerShell/releases/download/v${ver}/powershell-lts_${ver}-1.deb_amd64.deb"
+dpkg -i /tmp/pwsh.deb
+apt-get update
+apt-get install -f
+rm /tmp/pwsh.deb
+EOR
+
+RUN apt-get install -y inotify-tools && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY src/ /src/
 
-CMD ["/bin/sh", "/src/watch.sh"]
+ENTRYPOINT ["/bin/sh", "/src/watch.sh"]

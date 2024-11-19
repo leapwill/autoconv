@@ -348,12 +348,12 @@ function Select-Codecs {
         }
     }
     # convert codec to encoder where names are different
-    $vDestCodec = switch ($vDestCodec) {
+    $script:vDestCodec = switch ($vDestCodec) {
         'x264' { 'libx264' }
         'hevc' { 'libx265' }
         default { $vDestCodec }
     }
-    $aDestCodec = switch ($aDestCodec) {
+    $script:aDestCodec = switch ($aDestCodec) {
         'opus' { 'libopus' }
         default { $aDestCodec }
     }

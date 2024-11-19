@@ -4,6 +4,39 @@ Watch a directory and automatically convert videos to the desired format.
 
 **CPU resource limit is recommended!**
 
+## Installation
+
+```yaml
+---
+services:
+  autoconv:
+    image: ghcr.io/leapwill/autoconv:1.latest
+    container_name: autoconv
+    environment:
+      - DEBUG=1 # optional
+    volumes:
+      - /path/to/config/dir:/config
+      - /path/to/watch:/watch
+      - /path/to/output:/out
+    restart: unless-stopped
+    network_mode: none
+    devices:
+      - /dev/dri:/dev/dri # optional hardware acceleration
+    deploy:
+      resources:
+        limits:
+          cpus: "10"
+```
+
+Path of config is required. Other paths (`/watch` and `/out` in example) are configurable.
+
+Tags:
+* `1.latest`: latest "stable" version as long as there are no breaking changes
+* `dev`: latest version regardless of stability
+* Version numbers are also available for rollback convenience
+
+Based on the [LinuxServer.io image](https://docs.linuxserver.io/images/docker-ffmpeg/). See their README for more information on hardware acceleration.
+
 ## Configuration
 
 Modify `/config/autoconv.json` according to your needs. The first codec in the allowed list will be used if conversion is necessary.
@@ -35,7 +68,7 @@ logerr: true # optional, failures will be logged in <FileName>.err.log in the ma
 maxConcurrent: 1 # number of concurrent conversions to allow
 ```
 
-Currently using JSON for native PowerShell support.
+Currently using JSON for native PowerShell support, but documented in YAML for readability.
 
 ## Usage
 

@@ -4,7 +4,7 @@ LABEL "org.opencontainers.image.source"="https://github.com/leapwill/autoconv"
 
 RUN <<EOR
 set -eu
-ver=$(curl -Ls -o /dev/null -w '%{url_effective}' 'https://github.com/PowerShell/PowerShell/releases/latest')
+ver=$(curl -Ls -o /dev/null -w '%{url_effective}' 'https://aka.ms/powershell-release?tag=lts')
 ver=$(grep -Po '[0-9.]+$' <<EOF
 $ver
 EOF

@@ -205,7 +205,7 @@ $sSrc = @{}
 [PSCustomObject]$Probe = $null
 [string]$SubFile = $null
 [int[]]$aExtraStreams = @()
-[int[]]$sExtraStreams = @()
+[Hashtable[]]$sExtraStreams = @() # @{'idx'=[int];'codec'=[string];}
 function Examine-InputFile {
     $script:Probe = ffprobe -v error -print_format json -show_streams -show_entries format=duration $FileName 2>$null | ConvertFrom-Json
     $script:SubFile = Join-Path $File.Directory ($File.BaseName+'.srt') # TODO could be better, .srt is not the only format
@@ -274,7 +274,7 @@ function Examine-InputFile {
                 }
                 if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.language -iLike '*eng*' -and $s.tags.PSobject.Properties['title'] -and $s.tags.title -iLike '*SDH*') {
                     if ($Matcher.result.keepextra -iLike '*s*') {
-                        $script:sExtraStreams += $s.index
+                        $script:sExtraStreams += @{'idx'=$s.index; 'codec'=$s.codec_name}
                     }
                     else {
                         Write-Debug "[$LOG_TAG]Skipping sub track: already have an English and new is SDH"
@@ -283,7 +283,7 @@ function Examine-InputFile {
                 }
                 if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $sSrc.stream.tags.PSobject.Properties['language'] -and $sSrc.stream.tags.language -iLike '*eng*') {
                     if ($Matcher.result.keepextra -iLike '*s*') {
-                        $script:sExtraStreams += $s.index
+                        $script:sExtraStreams += @{'idx'=$s.index; 'codec'=$s.codec_name}
                     }
                     else {
                         Write-Debug "[$LOG_TAG]Skipping sub track: already have one that is English"
@@ -332,20 +332,33 @@ function Select-Codecs {
             $script:aDestCodec = 'copy'
         }
     }
-    $script:sDestCodec = $Matcher.result.scodecs[0]
-    if (($Matcher.result.scodecs -Contains $sSrc.stream.codec_name -and $Matcher.result.allowcopy)) {
-        $script:sDestCodec = 'copy'
+    # bitmap vs text need different output codecs, so iterate through all
+    function Select-SubtitleCodec {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory,Position=0)][string]$CodecName
+        )
+        if (($Matcher.result.scodecs -Contains $CodecName -and $Matcher.result.allowcopy)) {
+            return 'copy'
+        }
+        elseif ($BITMAP_SUBS -Contains $CodecName) {
+            $bitmapAllowedIntersection = $Matcher.result.scodecs | Where-Object {$BITMAP_SUBS -Contains $_}
+            if ($bitmapAllowedIntersection.Length -eq 0) {
+                Write-Debug "[$LOG_TAG]Subtitle stream will be copied as $CodecName : is bitmap type and no bitmap types in allow list"
+                return 'copy'
+            }
+            else {
+                Write-Debug "[$LOG_TAG]Subtitle stream will be $($bitmapAllowedIntersection[0]) : is first allowed bitmap type"
+                return $bitmapAllowedIntersection[0]
+            }
+        }
+        return $Matcher.result.scodecs[0]
     }
-    elseif ($BITMAP_SUBS -Contains $sSrc.stream.codec_name) {
-        $bitmapAllowedIntersection = $Matcher.result.scodecs | Where-Object {$BITMAP_SUBS -Contains $_}
-        if ($bitmapAllowedIntersection.Length -eq 0) {
-            $script:sDestCodec = 'copy'
-            Write-Debug "[$LOG_TAG]Subtitle stream will be copied as $($sSrc.stream.codec_name) : is bitmap type and no bitmap types in allow list"
-        }
-        else {
-            $script:sDestCodec = $bitmapAllowedIntersection[0]
-            Write-Debug "[$LOG_TAG]Subtitle stream will be $sDestCodec : is first allowed bitmap type"
-        }
+    $script:sDestCodec = Select-SubtitleCodec $sSrc.stream.codec_name
+    foreach ($sStr in $sExtraStreams) {
+        $inp = $sStr.codec
+        $sStr.codec = Select-SubtitleCodec $sStr.codec
+        Write-Debug "[$LOG_TAG]Subtitle extra stream $inp producing $($sStr.codec)"
     }
     # convert codec to encoder where names are different
     $script:vDestCodec = switch ($vDestCodec) {
@@ -388,8 +401,8 @@ function Invoke-Ffmpeg {
     foreach ($i in $aExtraStreams) {
         $ffArgs += @('-map', "0:$i")
     }
-    foreach ($i in $sExtraStreams) {
-        $ffArgs += @('-map', "0:$i")
+    foreach ($sStr in $sExtraStreams) {
+        $ffArgs += @('-map', "0:$($sStr.idx)")
     }
     if ($Matcher.result.keepextra -iLike '*d*') {
         $ffArgs += @('-map', '0:d?')
@@ -398,7 +411,11 @@ function Invoke-Ffmpeg {
         $ffArgs += @('-map', '0:t?')
     }
     if ($SubFile -or $sSrc.stream) {
-        $ffArgs += @('-c:s', $sDestCodec)
+        $ffArgs += @('-c:s:0', $sDestCodec)
+    }
+    for ($i = 1; $i -le $sExtraStreams.Length; $i++) {
+        $sStr = $sExtraStreams[$i-1]
+        $ffArgs += @("-c:s:$i", "$($sStr.codec)")
     }
     $ffArgs += @('-c:v', $vDestCodec, '-crf', '22', '-c:a', $aDestCodec)
     if ($vSrc.stream.height -gt $Matcher.result.maxheight) {

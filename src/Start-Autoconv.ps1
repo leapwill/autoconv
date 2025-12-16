@@ -259,6 +259,10 @@ function Examine-InputFile {
                     Break
                 }
                 Write-Debug "[$LOG_TAG]Taking audio track"
+                if ($aSrc.ContainsKey('stream') -and $aSrc.stream -ne $null -and $Matcher.result.keepextra -iLike '*a*') {
+                    # copy current candidate to extras before overwriting
+                    $script:aExtraStreams += $aSrc.idx
+                }
                 $script:aSrc.stream = $s
                 $script:aSrc.idx = $s.index
                 Break
@@ -291,6 +295,9 @@ function Examine-InputFile {
                     Break
                 }
                 Write-Debug "[$LOG_TAG]Taking sub track"
+                if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null -and $Matcher.result.keepextra -iLike '*s*') {
+                    $script:sExtraStreams += @{'idx'=$sSrc.idx; 'codec'=$sSrc.stream.codec_name}
+                }
                 $script:sSrc.stream = $s
                 $script:sSrc.idx = $s.index
                 Break

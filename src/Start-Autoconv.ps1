@@ -361,11 +361,13 @@ function Select-Codecs {
         }
         return $Matcher.result.scodecs[0]
     }
-    $script:sDestCodec = Select-SubtitleCodec $sSrc.stream.codec_name
-    foreach ($sStr in $sExtraStreams) {
-        $inp = $sStr.codec
-        $sStr.codec = Select-SubtitleCodec $sStr.codec
-        Write-Debug "[$LOG_TAG]Subtitle extra stream $inp producing $($sStr.codec)"
+    if ($sSrc.ContainsKey('stream') -and $sSrc.stream -ne $null) {
+        $script:sDestCodec = Select-SubtitleCodec $sSrc.stream.codec_name
+        foreach ($sStr in $sExtraStreams) {
+            $inp = $sStr.codec
+            $sStr.codec = Select-SubtitleCodec $sStr.codec
+            Write-Debug "[$LOG_TAG]Subtitle extra stream $inp producing $($sStr.codec)"
+        }
     }
     # convert codec to encoder where names are different
     $script:vDestCodec = switch ($vDestCodec) {

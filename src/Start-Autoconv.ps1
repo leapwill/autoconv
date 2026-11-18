@@ -506,6 +506,7 @@ try {
     [int]$maxConcurrent = [Math]::Max([int]($Config.maxConcurrent), 1)
     [int]$ppid=(Get-Process -Id $PID).Parent.Id
     do {
+        Start-Sleep -Milliseconds (Get-Random -Max 1000) # avoid unintended concurrency
         [int[]]$cpids = (Get-Process -Name 'pwsh' | Where-Object {$_.Parent.Id -eq $ppid}).Id
         [int]$currentRunning = (Get-Process -Name 'ffmpeg' 2>$null | Where-Object {$cpids -Contains $_.Parent.Id} | Measure-Object).Count
         if ($currentRunning -lt $maxConcurrent) {

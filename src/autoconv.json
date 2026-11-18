@@ -1,7 +1,7 @@
 {
     "matchers": [
         {
-            "dir": "/watch",
+            "dir": "/watch/",
             "recurse": true,
             "result": {
                 "vcodecs": ["h264"],

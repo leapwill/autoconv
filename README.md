@@ -43,7 +43,7 @@ Modify `/config/autoconv.json` according to your needs. The first codec in the a
 
 ```yaml
 matchers: # list of file path prefix matchers, the first matching one is used
-- dir: '/watch' # path to match
+- dir: '/watch/' # path to match
   recurse: true # watch subdirectories
   result: # desired output format
     vcodecs: # allowable video codecs
